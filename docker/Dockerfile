@@ -58,3 +58,5 @@ COPY apache-config.txt /etc/apache2/sites-enabled/000-default.conf
 # cache maintenance - need to set up a cron job
 
 EXPOSE 80 
+
+CMD ["/usr/sbin/apachectl", "-D", "FOREGROUND"]
