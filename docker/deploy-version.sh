@@ -29,6 +29,15 @@ BUCKET=xtf.dsc.cdlib.org
 REGION=us-west-2
 APPNAME=ucldc-iiif-west
 
+# package app and upload
+zip $ZIP -r Dockerfile apache-config.txt
+aws s3 cp $ZIP s3://$BUCKET/$DIR/$ZIP
+aws elasticbeanstalk create-application-version \
+  --application-name $APPNAME \
+  --region $REGION \
+  --source-bundle S3Bucket=$BUCKET,S3Key=$DIR/$ZIP \
+  --version-label "$1"
+
 # make sure environment actually exists
 env_exists=$(aws elasticbeanstalk describe-environments \
   --environment-name "$2" \
@@ -40,15 +49,6 @@ if [[ env_exists -ne 1 ]]
     echo "environment $2 does not exist"
     usage    
 fi
-
-# package app and upload
-zip $ZIP -r Dockerfile 
-aws s3 cp $ZIP s3://$BUCKET/$DIR/$ZIP
-aws elasticbeanstalk create-application-version \
-  --application-name $APPNAME \
-  --region $REGION \
-  --source-bundle S3Bucket=$BUCKET,S3Key=$DIR/$ZIP \
-  --version-label "$1"
 
 # deploy app to a running environment
 aws elasticbeanstalk update-environment \
