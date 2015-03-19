@@ -34,7 +34,7 @@
         AllowEncodedSlashes On
 
         WSGIDaemonProcess loris user=loris group=loris processes=10 threads=15 maximum-requests=10000
-        WSGIScriptAlias /loris /var/www/loris2/loris2.wsgi
+        WSGIScriptAlias / /var/www/loris2/loris2.wsgi
         WSGIProcessGroup loris
 
 </VirtualHost>
