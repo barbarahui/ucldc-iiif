@@ -10,31 +10,30 @@ import nxstashref
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Stash reference images in S3 for a given Nuxeo collection.')
-    parser.add_argument('collection_id', nargs=1, help="UCLDC registry collection ID.")
+    parser.add_argument('path', help="Nuxeo Path to collection")
+    parser.add_argument('bucket', help="S3 bucket name")
+
     utils.get_common_options(parser)
     if argv is None:
         argv = parser.parse_args()
 
-    collection_id = argv.collection_id[0]
-    aws_bucket = 'ucldc-nuxeo-ref-images' # make this an argument? or read out of env?
+    path = argv.path
+    aws_bucket = argv.bucket
 
     nx = utils.Nuxeo(rcfile=argv.rcfile, loglevel=argv.loglevel.upper())
-
-    # path = <use registry API to get Nuxeo path for collection_id>
-    path = "/asset-library/UCM/Ramicova/" # FIXME
 
     # establish a boto connection to S3 that we can reuse
     s3_conn = boto.connect_s3()
 
     # documents = get_all_images(path)
-    documents = nx.children(path) # FIXME   
+    documents = nx.children(path) # FIXME right now this assumes that all child objects are convertible images
     for document in documents:
         path = document['path']
         s3_location = nxstashref.nxstashref(path, aws_bucket, s3_conn)
         print "stashed in s3:", path, s3_location
          
 def get_all_images(collection_path):
-    """ get info for all master image files within a given Nuxeo collection """
+    """ identify all master image files within a given Nuxeo collection """
     pass
 
 if __name__ == "__main__":
