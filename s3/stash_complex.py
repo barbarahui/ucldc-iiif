@@ -6,10 +6,10 @@ from pynux import utils
 import boto
 import nxstashref
 
-""" Note to self: this will eventually be a script that's part of the UCLDC harvester's 'harvest images' logic. It will kick off harvesting of nuxeo master image files. Part of that process will be conversion of nuxeo image files into jp2000s, which will be stashed on S3 somewhere. Per convo with Brian, we probably want to keep track of which images have been stashed somewhere. Maybe in a dynamoDB on AWS? Other option is existing couchdb that's part of harvester, but that may not be as easy to maintain, and we might be switching out that infrastructure eventually """
+""" temp script. need to fold this logic into stash_collection_ref_images.py """
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Stash reference images in S3 for a given Nuxeo collection.')
+    parser = argparse.ArgumentParser(description='Stash reference images in S3 for a given COMPLEX Nuxeo collection.')
     parser.add_argument('path', help="Nuxeo Path to collection")
     parser.add_argument('bucket', help="S3 bucket name")
 
@@ -26,11 +26,14 @@ def main(argv=None):
     s3_conn = boto.connect_s3()
 
     # documents = get_all_images(path)
-    documents = nx.children(path) # FIXME right now this assumes that all child objects are convertible images
-    for document in documents:
-        path = document['path']
-        s3_location = nxstashref.nxstashref(path, aws_bucket, nx, s3_conn)
-        print "stashed in s3:", path, s3_location
+    parents = nx.children(path)
+    for parent in parents:
+        path = parent['path']
+        documents = nx.children(path) # FIXME right now this assumes that all child objects are convertible images
+        for document in documents:
+            path = document['path']
+            s3_location = nxstashref.nxstashref(path, aws_bucket, nx, s3_conn)
+            print "stashed in s3:", path, s3_location
          
 def get_all_images(collection_path):
     """ identify all master image files within a given Nuxeo collection """
