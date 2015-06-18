@@ -106,7 +106,8 @@ def create_jp2(input_file, output_file):
     # create jp2 using Kakadu
     # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
     kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress' # FIXME add config to .pynuxrc
-    subprocess.call([kdu_compress_location,
+    try:
+        subprocess.call([kdu_compress_location,
                          "-i", uncompressed_file,
                          "-o", output_file,
                          "-quiet",
@@ -125,6 +126,9 @@ def create_jp2(input_file, output_file):
                          "-num_threads", "4",
                          "-no_weights"
                          ])
+
+    except subprocess.CalledProcessError as e:
+        print e.output
 
     os.remove(uncompressed_file)
     os.rmdir(tmp_dir)
