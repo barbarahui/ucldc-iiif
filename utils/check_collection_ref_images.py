@@ -44,7 +44,7 @@ def main(argv=None):
     nuxeo_path = argv.path
     bucketpath = argv.bucket
 
-    nx = utils.Nuxeo(rcfile=argv.rcfile, loglevel=argv.loglevel.upper())
+    nx = utils.Nuxeo(rcfile=argv.pynuxrc, loglevel=argv.loglevel.upper())
     # just for simple objects for now
     objects = nx.children(argv.path)
     print "\nFound objects at {}.\nChecking S3 bucket {} for existence of corresponding files.\nThis could take a while...".format(nuxeo_path, bucketpath)
