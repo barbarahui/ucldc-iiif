@@ -6,16 +6,111 @@ from pynux import utils
 import requests
 import subprocess
 import tempfile
-import pprint
 import boto
 import magic
 import urlparse
 
-pp = pprint.PrettyPrinter()
+
+class NuxeoStashRef():
+    def __init__(self, path, bucket, pynuxrc):
+        self.path = path
+        self.bucket = bucket
+        self.pynuxrc = pynuxrc
+        self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
+         
+    def nxstashref(self, s3_conn=None):
+        uid = self.nx.get_uid(self.path)
+        tmp_dir = tempfile.mkdtemp()
+        filename = os.path.basename(self.path)
+
+        # make sure that this is a convertible image file
+        # in https://github.com/DDMAL/diva.js/blob/master/source/processing/process.py ooks like it uses imagemagick to convert other types of image files into tiffs.
+
+        # grab the file to convert
+        filepath = os.path.join(tmp_dir, filename)
+        download_url = self.get_object_download_url(uid, self.path)
+        self._download_nuxeo_file(download_url, filepath)
+        print download_url
+        print filepath
+
+        # convert to jp2
+        input_file = filepath
+        name, ext = os.path.splitext(filename)
+        jp2_file = os.path.join(tmp_dir, name + '.jp2')
+        self._create_jp2(input_file, jp2_file)
+
+
+        # delete temp stuff we're not using anymore
+        os.remove(filepath)
+        os.remove(jp2_file)
+        os.rmdir(tmp_dir)
+
+        #return s3_location
+
+    def _create_jp2(self, input_file, output_file):
+        tmp_dir = tempfile.mkdtemp()
+
+        # first need to make sure tiff is uncompressed - demo kdu_compress only deals with uncompressed tiffs
+        uncompressed_file = os.path.join(tmp_dir, 'uncompressed.tiff')
+        self._uncompress_image(input_file, uncompressed_file)
+
+        # create jp2 using Kakadu
+        # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
+        kdu_compress_location = '/usr/local/ucldc-iiif/s3/kakadu/kdu_compress' # FIXME add config
+        subprocess.call([kdu_compress_location,
+                             "-i", uncompressed_file,
+                             "-o", output_file,
+                             "-quiet",
+                             "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
+                             "Creversible=yes",
+                             "Clevels=7",
+                             "Cblk={64,64}",
+                             "-jp2_space", "sRGB",
+                             "Cuse_sop=yes",
+                             "Cuse_eph=yes",
+                             "Corder=RLCP",
+                             "ORGgen_plt=yes",
+                             "ORGtparts=R",
+                             "Stiles={1024,1024}",
+                             "-double_buffering", "10",
+                             "-num_threads", "4",
+                             "-no_weights"
+                             ])
+
+        os.remove(uncompressed_file)
+        os.rmdir(tmp_dir)
+
+        return output_file
+
+    def _uncompress_image(self, input_file, output_file):
+        # use tiffcp to uncompress: http://www.libtiff.org/tools.html
+        # tiff info ucm_dr_001_001_a.tif # gives you info on whether or not this tiff is compressed
+        # FIXME make sure tiffcp is installed - add to required packages
+        subprocess.call(['tiffcp',
+            "-c", "none",
+            input_file,
+            output_file])
+
+    def _download_nuxeo_file(self, download_from, download_to):
+        res = requests.get(download_from, auth=self.nx.auth)
+        res.raise_for_status()
+        with open(download_to, 'wb') as f:
+            for block in res.iter_content(1024):
+                if block:
+                    f.write(block)
+                    f.flush()
+
+    def get_object_download_url(self, nuxeo_id, nuxeo_path):
+        """ Get object file download URL. We should really put this logic in pynux """
+        parts = urlparse.urlsplit(self.nx.conf["api"])
+        filename = nuxeo_path.split('/')[-1]
+        url = '{}://{}/nuxeo/nxbigfile/default/{}/file:content/{}'.format(parts.scheme, parts.netloc, nuxeo_id, filename)
+
+        return url 
 
 def main(argv=None):
-
     parser = argparse.ArgumentParser(description='Produce jp2 version of Nuxeo image file and stash in S3.')
+<<<<<<< Updated upstream
     parser.add_argument('path', nargs=1, help="Nuxeo document path")
     parser.add_argument('bucket', nargs=1, help="S3 bucket name")
     # add optional argument to skip stash if object already exists on S3. need make this OOP.
@@ -174,6 +269,16 @@ def s3_stash(filepath, bucketname, obj_key, conn=None):
         pass # tell us the key already existed. use logging?
 
     return s3_url
+=======
+    parser.add_argument('path', help="Nuxeo document path")
+    parser.add_argument('bucket', help="S3 bucket name")
+    parser.add_argument('--pynuxrc', default='~./pynuxrc-prod', help="rc file for use by pynux")
+    if argv is None:
+        argv = parser.parse_args()
+
+    nxstash = NuxeoStashRef(argv.path, argv.bucket, argv.pynuxrc)
+    stashed = nxstash.nxstashref()
+>>>>>>> Stashed changes
 
 if __name__ == "__main__":
     sys.exit(main())
