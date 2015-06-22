@@ -9,7 +9,9 @@ import tempfile
 import boto
 import magic
 import urlparse
+import logging
 
+S3_URL_FORMAT = "s3://{0}/{1}"
 
 class NuxeoStashRef():
     def __init__(self, path, bucket, pynuxrc):
@@ -30,8 +32,6 @@ class NuxeoStashRef():
         filepath = os.path.join(tmp_dir, filename)
         download_url = self.get_object_download_url(uid, self.path)
         self._download_nuxeo_file(download_url, filepath)
-        print download_url
-        print filepath
 
         # convert to jp2
         input_file = filepath
@@ -39,13 +39,15 @@ class NuxeoStashRef():
         jp2_file = os.path.join(tmp_dir, name + '.jp2')
         self._create_jp2(input_file, jp2_file)
 
+        # stash in s3
+        s3_location = self._s3_stash(jp2_file, uid)
 
         # delete temp stuff we're not using anymore
         os.remove(filepath)
         os.remove(jp2_file)
         os.rmdir(tmp_dir)
 
-        #return s3_location
+        return s3_location
 
     def _create_jp2(self, input_file, output_file):
         tmp_dir = tempfile.mkdtemp()
@@ -56,7 +58,7 @@ class NuxeoStashRef():
 
         # create jp2 using Kakadu
         # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        kdu_compress_location = '/usr/local/ucldc-iiif/s3/kakadu/kdu_compress' # FIXME add config
+        kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress' # FIXME add config
         subprocess.call([kdu_compress_location,
                              "-i", uncompressed_file,
                              "-o", output_file,
@@ -104,9 +106,63 @@ class NuxeoStashRef():
         """ Get object file download URL. We should really put this logic in pynux """
         parts = urlparse.urlsplit(self.nx.conf["api"])
         filename = nuxeo_path.split('/')[-1]
-        url = '{}://{}/nuxeo/nxbigfile/default/{}/file:content/{}'.format(parts.scheme, parts.netloc, nuxeo_id, filename)
+        url = '{}://{}/Nuxeo/nxbigfile/default/{}/file:content/{}'.format(parts.scheme, parts.netloc, nuxeo_id, filename)
 
         return url 
+
+
+    def _s3_stash(self, filepath, obj_key):
+       """ Stash a file in the named bucket. 
+       """
+       bucketpath = self.bucket.strip("/")
+       bucketbase = self.bucket.split("/")[0]   
+       s3_url = S3_URL_FORMAT.format(bucketpath, obj_key)
+       parts = urlparse.urlsplit(s3_url)
+       mimetype = magic.from_file(filepath, mime=True)
+       
+       logging.debug('s3_url: {0}'.format(s3_url))
+       logging.debug('bucketpath: {0}'.format(bucketpath))
+       logging.debug('bucketbase: {0}'.format(bucketbase))
+ 
+       conn = boto.connect_s3() 
+
+       try:
+           bucket = conn.get_bucket(bucketbase)
+       except boto.exception.S3ResponseError:
+           bucket = conn.create_bucket(bucketbase)
+
+       if not(bucket.get_key(parts.path)):
+           key = bucket.new_key(parts.path)
+           key.set_metadata("Content-Type", mimetype)
+           key.set_contents_from_filename(filepath)
+           logging.info("created {0}".format(s3_url))
+       else:
+           logging.info("key already existed; not creating {0}".format(s3_url))
+
+       return s3_url 
+
+    def _s3_stashOLD(self, filepath, obj_key):
+        """ Stash a file in the named bucket.
+            `conn` is an optional boto.connect_s3()
+        """
+        s3_url = "s3://{0}/{1}".format(self.bucket, obj_key)
+        parts = urlparse.urlsplit(s3_url)
+        mimetype = magic.from_file(filepath, mime=True)
+        conn = boto.connect_s3()
+
+        bucket = conn.get_bucket(self.bucket)
+
+        if not(bucket.get_key(parts.path)):
+            key = bucket.new_key(parts.path)
+            key.set_metadata("Content-Type", mimetype)
+            key.set_contents_from_filename(filepath)
+            print "created", s3_url
+        else:
+            print "bucket already existed:", s3_url
+            pass # tell us the key already existed. use logging?
+
+        return s3_url
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Produce jp2 version of Nuxeo image file and stash in S3.')
@@ -118,6 +174,8 @@ def main(argv=None):
 
     nxstash = NuxeoStashRef(argv.path, argv.bucket, argv.pynuxrc)
     stashed = nxstash.nxstashref()
+
+    print stashed 
 
 if __name__ == "__main__":
     sys.exit(main())
