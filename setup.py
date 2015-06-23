@@ -8,7 +8,7 @@ def read(fname):
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
-    name = "UCLDC IIIF",
+    name = "ucldc-iiif",
     version = "0.0.1",
     description = ("International Image Interoperability Framework (IIIF) implementation code for the UCLDC project"),
     long_description=read('README.md'),
@@ -22,5 +22,6 @@ setup(
         'pynux',
         'python-magic'
     ],
+    packages=['s3'],
     test_suite='tests'
 )
