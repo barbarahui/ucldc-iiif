@@ -3,6 +3,8 @@
 import sys, os
 import argparse
 import subprocess
+import logging
+import ConfigParser
 
 class Convert(object):
 
@@ -12,20 +14,12 @@ class Convert(object):
     '''
 
     def __init__(self):
-        '''
-        self.input_path = input_path 
-        self.output_dir = output_dir
-        self.input_dir = os.path.dirname(self.input_path)
-        self.input_filename = os.path.basename(self.input_path)
-        '''
+        
+        self.logger = logging.getLogger(__name__)
 
         self.tiffcp_location = '/apps/nuxeo/pkg/bin/tiffcp'
         self.magick_convert_location = '/apps/nuxeo/pkg/bin/convert'
         self.kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress'
-
-    def convert(self):
-        if not os.path.isdir(self.output_dir):
-            os.mkdir(self.output_dir)
 
     def _uncompress_tiff(self, compressed_path, uncompressed_path):
         ''' uncompress a tiff '''
@@ -36,6 +30,7 @@ class Convert(object):
             "-c", "none",
             compressed_path,
             uncompressed_path])
+        self.logger.info('File uncompressed. Input: {}, output: {}'.format(compressed_path, uncompressed_path))
 
     def _tiff_to_jp2(self, tiff_path, jp2_path):
         ''' convert an uncompressed tiff to jp2 using kdu_compress'''
@@ -59,6 +54,8 @@ class Convert(object):
                              "-num_threads", "4",
                              "-no_weights"
                              ])
+        
+        self.logger.info('{} converted to {}'.format(tiff_path, jp2_path))
 
     def _tiff_to_jp2_no_jp2_space(self, tiff_path, jp2_path):
         ''' convert an uncompressed tiff to jp2 using kdu_compress'''
@@ -81,6 +78,7 @@ class Convert(object):
                              "-num_threads", "4",
                              "-no_weights"
                              ])
+        self.logger.info('{} converted to {}'.format(tiff_path, jp2_path))
 
     def _jpx_to_jp2(self):
         ''' convert jpx to jp2 '''
@@ -92,6 +90,7 @@ class Convert(object):
                          "-compress", "None",
                          input_path,
                          output_path])
+        self.logger.info('{} converted to {}'.format(input_path, output_path))
         
     def _gif_to_jp2(self):
         ''' convert gif to jp2 '''
@@ -99,23 +98,6 @@ class Convert(object):
 
 def main(argv=None):
     pass
-    '''
-    parser = argparse.ArgumentParser(description="Convert image file to jp2 format")
-    parser.add_argument('input_path', help="full path to input file")
-    parser.add_argument('--output_dir', help="directory you want the jp2 output to. Default is input file's dir")
-
-    if argv is None:
-        argv = parser.parse_args()
-
-    if argv.output_dir:
-        output_dir = argv.output_dir
-    else:
-        output_dir = os.path.dirname(argv.input_path) 
-
-    #c = Convert(argv.input_path, output_dir)
-
-    print "this is not properly implemented to be called as a standalone script"
-    '''
  
 if __name__ == "__main__":
     sys.exit(main())
