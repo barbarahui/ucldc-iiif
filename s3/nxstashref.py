@@ -10,6 +10,7 @@ import boto
 import magic
 import urlparse
 import logging
+from s3.convert import Convert
 
 S3_URL_FORMAT = "s3://{0}/{1}"
 
@@ -33,8 +34,10 @@ class NuxeoStashRef(object):
 
         name, ext = os.path.splitext(self.source_filename)
         self.jp2_filepath = os.path.join(self.tmp_dir, name + '.jp2')
+
+        self.convert = Convert()
          
-    def nxstashref(self, s3_conn=None):
+    def nxstashref(self):
 
         # grab the file to convert
         self._download_nuxeo_file()
@@ -58,50 +61,22 @@ class NuxeoStashRef(object):
 
     def _create_jp2(self):
         ''' Sample class for converting a local image to a jp2
-            This should work for compressed tiffs like those in asset-library/UCM/Ramicova
-            But this will likely need to be sub-classed for many (most?) collections.
+            Works for some compressed tiffs, but will likely need subclassing.
         '''
         tmp_dir = tempfile.mkdtemp()
 
+        # uncompress file
         uncompressed_file = os.path.join(tmp_dir, 'uncompressed.tiff')
-        self._uncompress_image(self.source_filepath, uncompressed_file)
+        self.convert._uncompress_tiff(self.source_filepath, uncompressed_file)
 
-        # create jp2 using Kakadu
-        # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress' # FIXME add config
-        subprocess.call([kdu_compress_location,
-                             "-i", uncompressed_file,
-                             "-o", self.jp2_filepath,
-                             "-quiet",
-                             "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
-                             "Creversible=yes",
-                             "Clevels=7",
-                             "Cblk={64,64}",
-                             "-jp2_space", "sRGB",
-                             "Cuse_sop=yes",
-                             "Cuse_eph=yes",
-                             "Corder=RLCP",
-                             "ORGgen_plt=yes",
-                             "ORGtparts=R",
-                             "Stiles={1024,1024}",
-                             "-double_buffering", "10",
-                             "-num_threads", "4",
-                             "-no_weights"
-                             ])
+        # create jp2
+        self.convert._tiff_to_jp2(uncompressed_file, self.jp2_filepath)
 
+        # clean up
         os.remove(uncompressed_file)
         os.rmdir(tmp_dir)
 
         return self.jp2_filepath 
-
-    def _uncompress_image(self, input_file, output_file):
-        # use tiffcp to uncompress: http://www.libtiff.org/tools.html
-        # tiff info ucm_dr_001_001_a.tif # gives you info on whether or not this tiff is compressed
-        # FIXME make sure tiffcp is installed - add to required packages
-        subprocess.call(['tiffcp',
-            "-c", "none",
-            input_file,
-            output_file])
 
     def _download_nuxeo_file(self):
         res = requests.get(self.source_download_url, auth=self.nx.auth)
@@ -156,7 +131,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Produce jp2 version of Nuxeo image file and stash in S3.')
     parser.add_argument('path', help="Nuxeo document path")
     parser.add_argument('bucket', help="S3 bucket name")
-    parser.add_argument('--pynuxrc', default='~./pynuxrc-prod', help="rc file for use by pynux")
+    parser.add_argument('--pynuxrc', default='~/.pynuxrc-prod', help="rc file for use by pynux")
     if argv is None:
         argv = parser.parse_args()
 
