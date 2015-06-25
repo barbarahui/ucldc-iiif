@@ -16,7 +16,7 @@ S3_URL_FORMAT = "s3://{0}/{1}"
 
 class NuxeoStashRef(object):
 
-    ''' Base class for converting nuxeo images to jp2 and stashing them in S3 '''
+    ''' Base class for fetching a Nuxeo object, converting it to jp2 and stashing it in S3 '''
 
     def __init__(self, path, bucket, pynuxrc):
        
@@ -41,6 +41,10 @@ class NuxeoStashRef(object):
          
     def nxstashref(self):
 
+        # first see if this looks like a valid file to try to convert 
+        if not self._pre_check():
+            return "{} did not pass precheck".format(self.path)
+
         # grab the file to convert
         self._download_nuxeo_file()
 
@@ -48,12 +52,20 @@ class NuxeoStashRef(object):
         self._create_jp2()
 
         # stash in s3
+        self.logger.debug("Converted to jp2, now about to stash.")
         s3_location = self._s3_stash()
 
         # clean up
         self._remove_tmp()
 
         return s3_location
+
+    def _pre_check(self):
+        ''' do a basic pre-check on the object to see if we think it's a convertible '''
+
+        self.logger.info("Object {} did not pass pre-check. Not processing and stashing.".format(self.path))
+
+        return False
 
     def _remove_tmp(self):
         ''' clean up after ourselves '''
@@ -126,6 +138,8 @@ class NuxeoStashRef(object):
 
 
 def main(argv=None):
+    pass
+    '''
     parser = argparse.ArgumentParser(description='Produce jp2 version of Nuxeo image file and stash in S3.')
     parser.add_argument('path', help="Nuxeo document path")
     parser.add_argument('bucket', help="S3 bucket name")
@@ -135,6 +149,7 @@ def main(argv=None):
 
     nxstash = NuxeoStashRef(argv.path, argv.bucket, argv.pynuxrc)
     stashed = nxstash.nxstashref()
+    '''
 
 if __name__ == "__main__":
     sys.exit(main())
