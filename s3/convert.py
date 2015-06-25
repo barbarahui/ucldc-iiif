@@ -6,11 +6,28 @@ import subprocess
 import logging
 import ConfigParser
 
+DEFAULT_KDU_COMPRESS_OPTS = [
+                            "-quiet",
+                            "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
+                            "Creversible=yes",
+                            "Clevels=7",
+                            "Cblk={64,64}",
+                            "-jp2_space", "sRGB",
+                            "Cuse_sop=yes",
+                            "Cuse_eph=yes",
+                            "Corder=RLCP",
+                            "ORGgen_plt=yes",
+                            "ORGtparts=R",
+                            "Stiles={1024,1024}",
+                            "-double_buffering", "10",
+                            "-num_threads", "4",
+                            "-no_weights"
+                            ]
+
 class Convert(object):
 
     ''' 
-        utilities for converting images to jp2 
-        see https://github.com/DDMAL/diva.js/blob/master/source/processing/process.py
+        utilities for use in converting an image file to jp2 format
     '''
 
     def __init__(self):
@@ -31,10 +48,19 @@ class Convert(object):
         self.logger.info('File uncompressed. Input: {}, output: {}'.format(compressed_path, uncompressed_path))
 
 
-    def _tiff_to_jp2(self, tiff_path, jp2_path):
+    def _tiff_to_jp2(self, tiff_path, jp2_path, opts=[]):
         ''' convert a tiff to jp2 using kdu_compress. tiff must be uncompressed.'''
         # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        subprocess.check_output([self.kdu_compress_location,
+        subprocess_args = [self.kdu_compress_location, "-i", tiff_path, "-o", jp2_path]
+        if opts: 
+            subprocess_args.extend(opts)
+        else:
+            subprocess_args.extend(DEFAULT_KDU_COMPRESS_OPTS)
+
+        self.logger.debug("subprocess args: {}".format(subprocess_args))
+
+        subprocess.check_output(subprocess_args)
+        '''subprocess.check_output([self.kdu_compress_location,
                              "-i", tiff_path,
                              "-o", jp2_path,
                              "-quiet",
@@ -52,33 +78,9 @@ class Convert(object):
                              "-double_buffering", "10",
                              "-num_threads", "4",
                              "-no_weights"
-                             ])
+                             ])'''
         
         self.logger.info('{} converted to {}'.format(tiff_path, jp2_path))
-
-
-    def _tiff_to_jp2_no_jp2_space(self, tiff_path, jp2_path):
-        ''' convert an uncompressed tiff to jp2 using kdu_compress, without the -jp2_space option specified '''
-        subprocess.check_output([self.kdu_compress_location,
-                             "-i", tiff_path,
-                             "-o", jp2_path,
-                             "-quiet",
-                             "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
-                             "Creversible=yes",
-                             "Clevels=7",
-                             "Cblk={64,64}",
-                             "Cuse_sop=yes",
-                             "Cuse_eph=yes",
-                             "Corder=RLCP",
-                             "ORGgen_plt=yes",
-                             "ORGtparts=R",
-                             "Stiles={1024,1024}",
-                             "-double_buffering", "10",
-                             "-num_threads", "4",
-                             "-no_weights"
-                             ])
-        self.logger.info('{} converted to {}'.format(tiff_path, jp2_path))
-
 
     def _jpg_to_tiff(self, input_path, output_path):
         ''' convert jpg to tiff using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php '''
