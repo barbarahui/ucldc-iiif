@@ -26,7 +26,7 @@ class Convert(object):
         # use tiffcp to uncompress: http://www.libtiff.org/tools.html
         # tiffinfo ucm_dr_001_001_a.tif # gives you info on whether or not this tiff is compressed
         # FIXME make sure tiffcp is installed - add to required packages
-        subprocess.call([self.tiffcp_location,
+        subprocess.check_output([self.tiffcp_location,
             "-c", "none",
             compressed_path,
             uncompressed_path])
@@ -35,7 +35,7 @@ class Convert(object):
     def _tiff_to_jp2(self, tiff_path, jp2_path):
         ''' convert an uncompressed tiff to jp2 using kdu_compress'''
         # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        subprocess.call([self.kdu_compress_location,
+        subprocess.check_output([self.kdu_compress_location,
                              "-i", tiff_path,
                              "-o", jp2_path,
                              "-quiet",
@@ -60,7 +60,7 @@ class Convert(object):
     def _tiff_to_jp2_no_jp2_space(self, tiff_path, jp2_path):
         ''' convert an uncompressed tiff to jp2 using kdu_compress'''
         # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        subprocess.call([self.kdu_compress_location,
+        subprocess.check_output([self.kdu_compress_location,
                              "-i", tiff_path,
                              "-o", jp2_path,
                              "-quiet",
@@ -86,7 +86,7 @@ class Convert(object):
 
     def _jpg_to_tiff(self, input_path, output_path):
         ''' convert jpg to jp2 '''
-        subprocess.call([self.magick_convert_location,
+        subprocess.check_output([self.magick_convert_location,
                          "-compress", "None",
                          input_path,
                          output_path])
