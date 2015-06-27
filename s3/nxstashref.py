@@ -11,28 +11,34 @@ import magic
 import urlparse
 import logging
 from s3.convert import Convert
+import shutil
 
 S3_URL_FORMAT = "s3://{0}/{1}"
+PRECONVERT = ['image/jpeg', 'image/gif']
 
 class NuxeoStashRef(object):
 
     ''' Base class for fetching a Nuxeo object, converting it to jp2 and stashing it in S3 '''
 
-    def __init__(self, path, bucket, pynuxrc):
+    def __init__(self, path, bucket, pynuxrc, replace=False):
        
         self.logger = logging.getLogger(__name__)
         
         self.path = path
         self.bucket = bucket
         self.pynuxrc = pynuxrc
+        self.replace = replace
+        self.logger.info("replace: {}".format(self.replace))
 
         self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
         self.uid = self.nx.get_uid(self.path)
-        self.source_download_url = self._get_object_download_url(self.uid, self.path)
+        self.source_download_url = self._get_object_download_url()
+        self.source_mimetype = self._get_object_mimetype()
 
         self.tmp_dir = tempfile.mkdtemp()
         self.source_filename = os.path.basename(self.path)
         self.source_filepath = os.path.join(self.tmp_dir, self.source_filename)
+        self.prepped_filepath = os.path.join(self.tmp_dir, 'prepped.tiff')
 
         name, ext = os.path.splitext(self.source_filename)
         self.jp2_filepath = os.path.join(self.tmp_dir, name + '.jp2')
@@ -42,14 +48,17 @@ class NuxeoStashRef(object):
     def nxstashref(self):
 
         # first see if this looks like a valid file to try to convert 
-        if not self._pre_check():
-            return "{} did not pass precheck".format(self.path)
+        passed, precheck_msg = self.convert._pre_check(self.source_mimetype)
+        if not passed:
+            return precheck_msg
 
         # grab the file to convert
         self._download_nuxeo_file()
 
         # convert to jp2
-        self._create_jp2()
+        jp2_code, jp2_msg = self._create_jp2()
+        if jp2_code:
+            return jp2_msg
 
         # stash in s3
         self.logger.debug("Converted to jp2, now about to stash.")
@@ -60,37 +69,31 @@ class NuxeoStashRef(object):
 
         return s3_location
 
-    def _pre_check(self):
-        ''' do a basic pre-check on the object to see if we think it's a convertible '''
-
-        self.logger.info("Object {} did not pass pre-check. Not processing and stashing.".format(self.path))
-
-        return False
-
     def _remove_tmp(self):
         ''' clean up after ourselves '''
-        os.remove(self.source_filepath)
-        os.remove(self.jp2_filepath)
-        os.rmdir(self.tmp_dir)
+        shutil.rmtree(self.tmp_dir)
 
     def _create_jp2(self):
         ''' Sample class for converting a local image to a jp2
             Works for some compressed tiffs, but will likely need subclassing.
         '''
-        tmp_dir = tempfile.mkdtemp()
-
-        # uncompress file
-        uncompressed_file = os.path.join(tmp_dir, 'uncompressed.tiff')
-        self.convert._uncompress_tiff(self.source_filepath, uncompressed_file)
+        # prep file for conversion to jp2 
+        if self.source_mimetype in PRECONVERT:
+            self.convert._pre_convert(self.source_filepath, self.prepped_filepath)
+        elif self.source_mimetype == 'image/tiff':
+            self.convert._uncompress_tiff(self.source_filepath, self.prepped_filepath)
+        else:
+            self.logger.warning("Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype))
+            return
 
         # create jp2
-        self.convert._tiff_to_jp2(uncompressed_file, self.jp2_filepath)
+        jp2_retcode, jp2_msg = self.convert._tiff_to_jp2(self.prepped_filepath, self.jp2_filepath)
 
         # clean up
-        os.remove(uncompressed_file)
-        os.rmdir(tmp_dir)
+        #os.remove(uncompressed_file)
+        #os.rmdir(tmp_dir)
 
-        return self.jp2_filepath 
+        return jp2_retcode, jp2_msg 
 
     def _download_nuxeo_file(self):
         res = requests.get(self.source_download_url, auth=self.nx.auth)
@@ -100,15 +103,27 @@ class NuxeoStashRef(object):
                 if block:
                     f.write(block)
                     f.flush()
+        self.logger.info("Downloaded file from {} to {}".format(self.source_download_url, self.source_filepath))
 
-    def _get_object_download_url(self, nuxeo_id, nuxeo_path):
-        """ Get object file download URL. We should really put this logic in pynux """
+    def _get_object_download_url(self):
+        """ Get object file download URL """
         parts = urlparse.urlsplit(self.nx.conf["api"])
-        filename = nuxeo_path.split('/')[-1]
-        url = '{}://{}/Nuxeo/nxbigfile/default/{}/file:content/{}'.format(parts.scheme, parts.netloc, nuxeo_id, filename)
+        filename = self.path.split('/')[-1]
+        url = '{}://{}/Nuxeo/nxbigfile/default/{}/file:content/{}'.format(parts.scheme, parts.netloc, self.uid, filename)
 
         return url 
 
+    def _get_object_mimetype(self):
+        """ Get object mime-type from Nuxeo metadata """
+        mimetype = None
+
+        metadata = self.nx.get_metadata(path=self.path)
+        picture_views = metadata['properties']['picture:views']
+        for pv in picture_views:
+            if pv['tag'] == 'original':
+                mimetype = pv['content']['mime-type']
+
+        return mimetype
 
     def _s3_stash(self):
        """ Stash file in S3 bucket. 
@@ -131,8 +146,13 @@ class NuxeoStashRef(object):
            key.set_metadata("Content-Type", mimetype)
            key.set_contents_from_filename(self.jp2_filepath)
            self.logger.info("created {0}".format(s3_url))
+       elif self.replace:
+           key = bucket.get_key(parts.path)
+           key.set_metadata("Content-Type", mimetype)
+           key.set_contents_from_filename(self.jp2_filepath)
+           self.logger.info("re-uploaded {}".format(s3_url))
        else:
-           self.logger.info("key already existed; not creating {0}".format(s3_url))
+           self.logger.info("key already existed; not re-uploading {0}".format(s3_url))
 
        return s3_url 
 

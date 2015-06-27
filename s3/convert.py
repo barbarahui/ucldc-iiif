@@ -6,13 +6,16 @@ import subprocess
 import logging
 import ConfigParser
 
-DEFAULT_KDU_COMPRESS_OPTS = [
+VALID_TYPES = ['image/jpeg', 'image/gif', 'image/tiff']
+INVALID_TYPES = ['application/pdf']
+
+# Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
+KDU_COMPRESS_BASE_OPTS = [
                             "-quiet",
                             "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
                             "Creversible=yes",
                             "Clevels=7",
                             "Cblk={64,64}",
-                            "-jp2_space", "sRGB",
                             "Cuse_sop=yes",
                             "Cuse_eph=yes",
                             "Corder=RLCP",
@@ -23,6 +26,9 @@ DEFAULT_KDU_COMPRESS_OPTS = [
                             "-num_threads", "4",
                             "-no_weights"
                             ]
+
+KDU_COMPRESS_DEFAULT_OPTS = KDU_COMPRESS_BASE_OPTS[:]
+KDU_COMPRESS_DEFAULT_OPTS.extend(["-jp2_space", "sRGB"])
 
 class Convert(object):
 
@@ -39,6 +45,22 @@ class Convert(object):
         self.kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress'
 
 
+    def _pre_check(self, mimetype):
+        ''' do a basic pre-check on the object to see if we think it's something know how to deal with '''
+        # see if we recognize this mime type
+        if mimetype in VALID_TYPES:
+            msg = "Object type '{}' was pre-checked and recognized as something we can try to convert.".format(mimetype)
+            self.logger.info(msg)
+            return True, msg 
+        elif mimetype in INVALID_TYPES:
+            msg = "Object type '{}' was pre-checked and recognized as something we don't want to convert.".format(mimetype)
+            self.logger.info(msg)
+            return False, msg
+        else:
+            msg = "Object type '{}' was unrecognized. We don't know how to deal with this".format(mimetype)
+            self.logger.warning(msg)
+            return False, msg
+
     def _uncompress_tiff(self, compressed_path, uncompressed_path):
         ''' uncompress a tiff using tiffcp. See http://www.libtiff.org/tools.html '''
         subprocess.check_output([self.tiffcp_location,
@@ -48,43 +70,35 @@ class Convert(object):
         self.logger.info('File uncompressed. Input: {}, output: {}'.format(compressed_path, uncompressed_path))
 
 
-    def _tiff_to_jp2(self, tiff_path, jp2_path, opts=[]):
+    def _tiff_to_jp2(self, tiff_path, jp2_path):
         ''' convert a tiff to jp2 using kdu_compress. tiff must be uncompressed.'''
-        # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
-        subprocess_args = [self.kdu_compress_location, "-i", tiff_path, "-o", jp2_path]
-        if opts: 
-            subprocess_args.extend(opts)
-        else:
-            subprocess_args.extend(DEFAULT_KDU_COMPRESS_OPTS)
+        basic_args = [self.kdu_compress_location, "-i", tiff_path, "-o", jp2_path]
+        default_args = basic_args[:]
+        default_args.extend(KDU_COMPRESS_DEFAULT_OPTS)
+        alt_args = basic_args[:]
+        alt_args.extend(KDU_COMPRESS_BASE_OPTS)
+       
+        try:
+            subprocess.check_output(default_args)
+            msg = '{} converted to {}'.format(tiff_path, jp2_path)
+            self.logger.info(msg)
+            return 0, msg
+        except subprocess.CalledProcessError, e:
+            self.logger.info('A kdu_compress command failed. Trying alternate.')
+            try:
+                subprocess.check_output(alt_args) 
+                msg = '{} converted to {}'.format(tiff_path, jp2_path)
+                self.logger.info(msg)
+                return 0, msg
+            except:
+                msg = 'kdu_compress command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
+                self.logger.error(msg)
+                return e.returncode, msg
 
-        self.logger.debug("subprocess args: {}".format(subprocess_args))
-
-        subprocess.check_output(subprocess_args)
-        '''subprocess.check_output([self.kdu_compress_location,
-                             "-i", tiff_path,
-                             "-o", jp2_path,
-                             "-quiet",
-                             "-rate", "2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374944,.08266171",
-                             "Creversible=yes",
-                             "Clevels=7",
-                             "Cblk={64,64}",
-                             "-jp2_space", "sRGB",
-                             "Cuse_sop=yes",
-                             "Cuse_eph=yes",
-                             "Corder=RLCP",
-                             "ORGgen_plt=yes",
-                             "ORGtparts=R",
-                             "Stiles={1024,1024}",
-                             "-double_buffering", "10",
-                             "-num_threads", "4",
-                             "-no_weights"
-                             ])'''
-        
-        self.logger.info('{} converted to {}'.format(tiff_path, jp2_path))
-
-    def _jpg_to_tiff(self, input_path, output_path):
-        ''' convert jpg to tiff using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php '''
-        # TODO: this will try to convert anything to anything. Restrict usage?
+    def _pre_convert(self, input_path, output_path):
+        ''' 
+         convert file using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php 
+        '''
         subprocess.check_output([self.magick_convert_location,
                          "-compress", "None",
                          input_path,
