@@ -49,17 +49,19 @@ class Convert(object):
         ''' do a basic pre-check on the object to see if we think it's something know how to deal with '''
         # see if we recognize this mime type
         if mimetype in VALID_TYPES:
+            passed = True
             msg = "Object type '{}' was pre-checked and recognized as something we can try to convert.".format(mimetype)
             self.logger.info(msg)
-            return True, msg 
         elif mimetype in INVALID_TYPES:
+            passed = False
             msg = "Object type '{}' was pre-checked and recognized as something we don't want to convert.".format(mimetype)
             self.logger.info(msg)
-            return False, msg
         else:
+            passed = False
             msg = "Object type '{}' was unrecognized. We don't know how to deal with this".format(mimetype)
             self.logger.warning(msg)
-            return False, msg
+
+        return passed, msg
 
     def _uncompress_tiff(self, compressed_path, uncompressed_path):
         ''' uncompress a tiff using tiffcp. See http://www.libtiff.org/tools.html '''
@@ -80,20 +82,22 @@ class Convert(object):
        
         try:
             subprocess.check_output(default_args)
+            converted = True
             msg = '{} converted to {}'.format(tiff_path, jp2_path)
             self.logger.info(msg)
-            return 0, msg
         except subprocess.CalledProcessError, e:
             self.logger.info('A kdu_compress command failed. Trying alternate.')
             try:
                 subprocess.check_output(alt_args) 
+                converted = True
                 msg = '{} converted to {}'.format(tiff_path, jp2_path)
                 self.logger.info(msg)
-                return 0, msg
             except:
+                converted = False
                 msg = 'kdu_compress command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
                 self.logger.error(msg)
-                return e.returncode, msg
+
+        return converted, msg
 
     def _pre_convert(self, input_path, output_path):
         ''' 

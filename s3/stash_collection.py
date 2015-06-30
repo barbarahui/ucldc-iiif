@@ -5,6 +5,7 @@ import argparse
 from s3.nxstashref import NuxeoStashRef
 import logging
 from deepharvest.deepharvest_nuxeo import DeepHarvestNuxeo
+import json
 
 def main(argv=None):
 
@@ -17,20 +18,39 @@ def main(argv=None):
         argv = parser.parse_args()
 
     collection = argv.path.split('/')[-1]
-    logfile = '{}.log'.format(collection)
-    print "Logfile will be output to: {}\n".format(logfile)
+
+    # logging
+    logfile = 'logs/{}.log'.format(collection)
+    print "LOG:\t{}".format(logfile)
     logging.basicConfig(filename=logfile, level=logging.INFO, format='%(asctime)s (%(name)s) [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     logger = logging.getLogger(__name__)
  
     dh = DeepHarvestNuxeo(argv.path, argv.bucket, argv.pynuxrc)
 
+    report = {}
     objects = dh.fetch_objects()
     for obj in objects:
         nxstash = NuxeoStashRef(obj['path'], argv.bucket, argv.pynuxrc, argv.replace)
-        nxstash.nxstashref()
+        report[nxstash.uid] = nxstash.nxstashref()
         for c in dh.fetch_components(obj):
             nxstash = NuxeoStashRef(c['path'], argv.bucket, argv.pynuxrc) 
-            nxstash.nxstashref()
+            report[nxstash.uid] = nxstash.nxstashref()
+
+    # output report to json file
+    reportfile = "reports/{}.json".format(collection)
+    with open(reportfile, 'w') as f:
+        json.dump(report, f, sort_keys=True, indent=4)
+
+    # parse report to give basic stats
+    print "REPORT:\t{}".format(reportfile)
+    print "SUMMARY:"
+    print "processed:\t{}".format(len(report))
+    unrecognized = len([key for key, value in report.iteritems() if not value['precheck']['pass']])
+    print "not convertible:\t{}".format(unrecognized)
+    converted = len([key for key, value in report.iteritems() if value['converted']])
+    print "converted:\t{}".format(converted)
+    stashed = len([key for key, value in report.iteritems() if value['stashed']])
+    print "stashed:\t{}".format(stashed)
 
     print "\nDone."
 

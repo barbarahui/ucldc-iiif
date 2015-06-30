@@ -28,7 +28,6 @@ class NuxeoStashRef(object):
         self.bucket = bucket
         self.pynuxrc = pynuxrc
         self.replace = replace
-        self.logger.info("replace: {}".format(self.replace))
 
         self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
         self.uid = self.nx.get_uid(self.path)
@@ -44,56 +43,80 @@ class NuxeoStashRef(object):
         self.jp2_filepath = os.path.join(self.tmp_dir, name + '.jp2')
 
         self.convert = Convert()
-         
+        self.report = {}
+        self._update_report('uid', self.uid)
+        self._update_report('path', self.path)
+        self._update_report('bucket', self.bucket)
+        self._update_report('replace', self.replace)
+        self._update_report('pynuxrc', self.pynuxrc)
+        self._update_report('source_download_url', self.source_download_url)
+        self._update_report('source_mimetype', self.source_mimetype)
+
     def nxstashref(self):
+
+        self.report['converted'] = False
+        self.report['stashed'] = False
 
         # first see if this looks like a valid file to try to convert 
         passed, precheck_msg = self.convert._pre_check(self.source_mimetype)
+        self._update_report('precheck', {'pass': passed, 'msg': precheck_msg})
         if not passed:
-            return precheck_msg
+            self._remove_tmp()
+            return self.report
 
         # grab the file to convert
         self._download_nuxeo_file()
 
         # convert to jp2
-        jp2_code, jp2_msg = self._create_jp2()
-        if jp2_code:
-            return jp2_msg
+        converted, jp2_report = self._create_jp2()
+        self._update_report('create_jp2', jp2_report) 
+        self._update_report('converted', converted)
+        if not converted:
+            self._remove_tmp()
+            return self.report
 
         # stash in s3
-        self.logger.debug("Converted to jp2, now about to stash.")
-        s3_location = self._s3_stash()
-
-        # clean up
+        stashed, s3_report = self._s3_stash()
+        self._update_report('s3_stash', s3_report)
+        self._update_report('stashed', stashed)
+ 
         self._remove_tmp()
+        return self.report 
 
-        return s3_location
+    def _update_report(self, key, value):
+        ''' add a key/value pair to report dict '''
+        self.report[key] = value 
 
     def _remove_tmp(self):
         ''' clean up after ourselves '''
         shutil.rmtree(self.tmp_dir)
 
     def _create_jp2(self):
-        ''' Sample class for converting a local image to a jp2
-            Works for some compressed tiffs, but will likely need subclassing.
+        ''' convert a local image to a jp2
         '''
+        report = {} 
+        report['preconverted'] = False
+        report['uncompressed'] = False
+
         # prep file for conversion to jp2 
         if self.source_mimetype in PRECONVERT:
             self.convert._pre_convert(self.source_filepath, self.prepped_filepath)
+            report['preconverted'] = True
         elif self.source_mimetype == 'image/tiff':
             self.convert._uncompress_tiff(self.source_filepath, self.prepped_filepath)
+            report['uncompressed'] = True
         else:
-            self.logger.warning("Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype))
-            return
+            msg = "Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype)
+            self.logger.warning(msg)
+            report['status'] = 'unknown mimetype'
+            report['msg'] = "Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype)
+            return report
 
         # create jp2
-        jp2_retcode, jp2_msg = self.convert._tiff_to_jp2(self.prepped_filepath, self.jp2_filepath)
+        converted, jp2_msg = self.convert._tiff_to_jp2(self.prepped_filepath, self.jp2_filepath)
+        report['convert_tiff_to_jp2'] = {'converted': converted, 'msg': jp2_msg}
 
-        # clean up
-        #os.remove(uncompressed_file)
-        #os.rmdir(tmp_dir)
-
-        return jp2_retcode, jp2_msg 
+        return converted, report
 
     def _download_nuxeo_file(self):
         res = requests.get(self.source_download_url, auth=self.nx.auth)
@@ -128,6 +151,7 @@ class NuxeoStashRef(object):
     def _s3_stash(self):
        """ Stash file in S3 bucket. 
        """
+       report = {}
        bucketpath = self.bucket.strip("/")
        bucketbase = self.bucket.split("/")[0]   
        s3_url = S3_URL_FORMAT.format(bucketpath, self.uid)
@@ -140,36 +164,37 @@ class NuxeoStashRef(object):
            bucket = conn.get_bucket(bucketbase)
        except boto.exception.S3ResponseError:
            bucket = conn.create_bucket(bucketbase)
+           self.logger.info("Created S3 bucket {}".format(bucketbase))
 
        if not(bucket.get_key(parts.path)):
            key = bucket.new_key(parts.path)
            key.set_metadata("Content-Type", mimetype)
            key.set_contents_from_filename(self.jp2_filepath)
-           self.logger.info("created {0}".format(s3_url))
+           msg = "created {0}".format(s3_url)
+           action = 'created'
+           self.logger.info(msg)
        elif self.replace:
            key = bucket.get_key(parts.path)
            key.set_metadata("Content-Type", mimetype)
            key.set_contents_from_filename(self.jp2_filepath)
-           self.logger.info("re-uploaded {}".format(s3_url))
+           msg = "re-uploaded {}".format(s3_url)
+           action = 'replaced'
+           self.logger.info(msg)
        else:
-           self.logger.info("key already existed; not re-uploading {0}".format(s3_url))
+           msg = "key already existed; not re-uploading {0}".format(s3_url)
+           action = 'skipped'
+           self.logger.info(msg)
 
-       return s3_url 
+       report['s3_url'] = s3_url
+       report['msg'] = msg
+       report['action'] = action 
+       report['stashed'] = True
+
+       return True, report
 
 
 def main(argv=None):
     pass
-    '''
-    parser = argparse.ArgumentParser(description='Produce jp2 version of Nuxeo image file and stash in S3.')
-    parser.add_argument('path', help="Nuxeo document path")
-    parser.add_argument('bucket', help="S3 bucket name")
-    parser.add_argument('--pynuxrc', default='~/.pynuxrc-prod', help="rc file for use by pynux")
-    if argv is None:
-        argv = parser.parse_args()
-
-    nxstash = NuxeoStashRef(argv.path, argv.bucket, argv.pynuxrc)
-    stashed = nxstash.nxstashref()
-    '''
 
 if __name__ == "__main__":
     sys.exit(main())
