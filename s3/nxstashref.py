@@ -95,16 +95,14 @@ class NuxeoStashRef(object):
         ''' convert a local image to a jp2
         '''
         report = {} 
-        report['preconverted'] = False
-        report['uncompressed'] = False
 
         # prep file for conversion to jp2 
         if self.source_mimetype in PRECONVERT:
-            self.convert._pre_convert(self.source_filepath, self.prepped_filepath)
-            report['preconverted'] = True
+            preconverted, preconvert_msg = self.convert._pre_convert(self.source_filepath, self.prepped_filepath)
+            report['pre_convert'] = {'preconverted': preconverted, 'msg': preconvert_msg}
         elif self.source_mimetype == 'image/tiff':
-            self.convert._uncompress_tiff(self.source_filepath, self.prepped_filepath)
-            report['uncompressed'] = True
+            uncompressed, uncompress_msg = self.convert._uncompress_tiff(self.source_filepath, self.prepped_filepath)
+            report['uncompress_tiff'] = {'uncompressed': uncompressed, 'msg': uncompress_msg}
         else:
             msg = "Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype)
             self.logger.warning(msg)

@@ -65,11 +65,20 @@ class Convert(object):
 
     def _uncompress_tiff(self, compressed_path, uncompressed_path):
         ''' uncompress a tiff using tiffcp. See http://www.libtiff.org/tools.html '''
-        subprocess.check_output([self.tiffcp_location,
-            "-c", "none",
-            compressed_path,
-            uncompressed_path])
-        self.logger.info('File uncompressed. Input: {}, output: {}'.format(compressed_path, uncompressed_path))
+        try:
+            subprocess.check_output([self.tiffcp_location,
+                "-c", "none",
+                compressed_path,
+                uncompressed_path])
+            uncompressed = True
+            msg = 'File uncompressed. Input: {}, output: {}'.format(compressed_path, uncompressed_path)
+            self.logger.info(msg)
+        except subprocess.CalledProcessError, e:
+            uncompressed = False
+            msg = '`tiffcp` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
+            self.logger.error(msg)
+
+        return uncompressed, msg             
 
 
     def _tiff_to_jp2(self, tiff_path, jp2_path):
@@ -92,7 +101,7 @@ class Convert(object):
                 converted = True
                 msg = '{} converted to {}'.format(tiff_path, jp2_path)
                 self.logger.info(msg)
-            except:
+            except subprocess.CalledProcessError, e:
                 converted = False
                 msg = 'kdu_compress command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
                 self.logger.error(msg)
@@ -103,11 +112,20 @@ class Convert(object):
         ''' 
          convert file using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php 
         '''
-        subprocess.check_output([self.magick_convert_location,
+        try:
+            subprocess.check_output([self.magick_convert_location,
                          "-compress", "None",
                          input_path,
                          output_path])
-        self.logger.info('{} converted to {}'.format(input_path, output_path))
+            preconverted = True
+            msg = 'Used ImagMagick convert to convert {} to {}'.format(input_path, output_path)
+            self.logger.info(msg)
+        except subprocess.CalledProcessError, e:
+            preconverted = False
+            msg = 'ImageMagic `convert` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
+            self.logger.error(msg)
+
+        return preconverted, msg 
         
 
 def main(argv=None):
