@@ -42,9 +42,12 @@ def main(argv=None):
         json.dump(report, f, sort_keys=True, indent=4)
 
     # parse report to give basic stats
+    report = json.load(open(reportfile))
     print "REPORT:\t{}".format(reportfile)
     print "SUMMARY:"
     print "processed:\t{}".format(len(report))
+    not_image = len([key for key, value in report.iteritems() if not value['is_image']['is_image']])
+    print "not image:\t{}".format(not_image)
     unrecognized = len([key for key, value in report.iteritems() if not value['precheck']['pass']])
     print "not convertible:\t{}".format(unrecognized)
     converted = len([key for key, value in report.iteritems() if value['converted']])

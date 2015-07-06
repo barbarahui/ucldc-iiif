@@ -28,13 +28,14 @@ class NuxeoStashRef(object):
         self.bucket = bucket
         self.pynuxrc = pynuxrc
         self.replace = replace
+        self.logger.info("initizialized NuxeoStashRef with path {}".format(self.path))
 
         self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
         self.uid = self.nx.get_uid(self.path)
         self.source_download_url = self._get_object_download_url()
-        self.source_mimetype = self._get_object_mimetype()
+        self.metadata = self.nx.get_metadata(path=self.path)
 
-        self.tmp_dir = tempfile.mkdtemp()
+        self.tmp_dir = tempfile.mkdtemp(dir='/apps/content/tmp') # FIXME put in conf
         self.source_filename = os.path.basename(self.path)
         self.source_filepath = os.path.join(self.tmp_dir, self.source_filename)
         self.prepped_filepath = os.path.join(self.tmp_dir, 'prepped.tiff')
@@ -50,7 +51,6 @@ class NuxeoStashRef(object):
         self._update_report('replace', self.replace)
         self._update_report('pynuxrc', self.pynuxrc)
         self._update_report('source_download_url', self.source_download_url)
-        self._update_report('source_mimetype', self.source_mimetype)
 
     def nxstashref(self):
 
@@ -58,6 +58,14 @@ class NuxeoStashRef(object):
         self.report['stashed'] = False
 
         # first see if this looks like a valid file to try to convert 
+        is_image, image_msg = self._is_image()
+        self._update_report('is_image', {'is_image': is_image, 'msg': image_msg})
+        self._update_report('precheck', {'pass': False, 'msg': image_msg})
+        if not is_image:
+            self._remove_tmp()
+            return self.report
+            
+        self.source_mimetype = self._get_object_mimetype()
         passed, precheck_msg = self.convert._pre_check(self.source_mimetype)
         self._update_report('precheck', {'pass': passed, 'msg': precheck_msg})
         if not passed:
@@ -82,6 +90,21 @@ class NuxeoStashRef(object):
  
         self._remove_tmp()
         return self.report 
+
+    def _is_image(self):
+        ''' do a basic check to see if this is an image '''
+        try:
+            type = self.metadata['properties']['ucldc_schema:type']
+        except KeyError:
+            msg = "Could not find ucldc_schema:type for object. Setting nuxeo type to None"
+            return False, msg
+
+        if type == 'image':
+            msg = "Nuxeo type is image."
+            return True, msg
+        else:
+            msg = "Nuxeo type is {}".format(self.metadata['type'])
+            return False, msg
 
     def _update_report(self, key, value):
         ''' add a key/value pair to report dict '''
@@ -136,13 +159,13 @@ class NuxeoStashRef(object):
 
     def _get_object_mimetype(self):
         """ Get object mime-type from Nuxeo metadata """
-        mimetype = None
-
-        metadata = self.nx.get_metadata(path=self.path)
-        picture_views = metadata['properties']['picture:views']
-        for pv in picture_views:
-            if pv['tag'] == 'original':
-                mimetype = pv['content']['mime-type']
+        try:
+            picture_views = self.metadata['properties']['picture:views']
+            for pv in picture_views:
+                if pv['tag'] == 'original':
+                    mimetype = pv['content']['mime-type']
+        except KeyError:
+            mimetype = None
 
         return mimetype
 
