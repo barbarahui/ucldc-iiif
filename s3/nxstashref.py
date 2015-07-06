@@ -159,13 +159,14 @@ class NuxeoStashRef(object):
 
     def _get_object_mimetype(self):
         """ Get object mime-type from Nuxeo metadata """
+        mimetype = None
         try:
             picture_views = self.metadata['properties']['picture:views']
             for pv in picture_views:
                 if pv['tag'] == 'original':
                     mimetype = pv['content']['mime-type']
         except KeyError:
-            mimetype = None
+            pass
 
         return mimetype
 
