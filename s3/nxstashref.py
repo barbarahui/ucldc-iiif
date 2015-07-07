@@ -14,7 +14,7 @@ from s3.convert import Convert
 import shutil
 
 S3_URL_FORMAT = "s3://{0}/{1}"
-PRECONVERT = ['image/jpeg', 'image/gif']
+PRECONVERT = ['image/jpeg', 'image/gif', 'image/png']
 
 class NuxeoStashRef(object):
 

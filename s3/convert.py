@@ -6,7 +6,7 @@ import subprocess
 import logging
 import ConfigParser
 
-VALID_TYPES = ['image/jpeg', 'image/gif', 'image/tiff']
+VALID_TYPES = ['image/jpeg', 'image/gif', 'image/tiff', 'image/png']
 INVALID_TYPES = ['application/pdf']
 
 # Settings recommended as a starting point by Jon Stroop. See https://groups.google.com/forum/?hl=en#!searchin/iiif-discuss/kdu_compress/iiif-discuss/OFzWFLaWVsE/wF2HaykHcd0J
