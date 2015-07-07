@@ -93,17 +93,26 @@ class NuxeoStashRef(object):
 
     def _is_image(self):
         ''' do a basic check to see if this is an image '''
+        # check ucldc_schema:type
         try:
             type = self.metadata['properties']['ucldc_schema:type']
         except KeyError:
             msg = "Could not find ucldc_schema:type for object. Setting nuxeo type to None"
             return False, msg
 
-        if type == 'image':
-            msg = "Nuxeo type is image."
+        # check Nuxeo object type
+        if type == None:
+            try:
+                type = self.metadata['type']
+            except KeyError:
+                msg = "Could not find Nuxeo metadata type for object. Setting nuxeo type to None"
+                return False, msg
+
+        if type in ['image', 'SampleCustomPicture']:
+            msg = "Nuxeo type is {}".format(type)
             return True, msg
         else:
-            msg = "Nuxeo type is {}".format(self.metadata['type'])
+            msg = "Nuxeo type is {}".format(type)
             return False, msg
 
     def _update_report(self, key, value):
