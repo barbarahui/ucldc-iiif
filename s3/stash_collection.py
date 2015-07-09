@@ -25,7 +25,7 @@ def main(argv=None):
     logging.basicConfig(filename=logfile, level=logging.INFO, format='%(asctime)s (%(name)s) [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     logger = logging.getLogger(__name__)
  
-    dh = DeepHarvestNuxeo(argv.path, argv.bucket, argv.pynuxrc)
+    dh = DeepHarvestNuxeo(argv.path, argv.bucket, pynuxrc=argv.pynuxrc)
 
     report = {}
     objects = dh.fetch_objects()
