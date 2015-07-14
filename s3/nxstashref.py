@@ -101,7 +101,7 @@ class NuxeoStashRef(object):
             return False, msg
 
         # check Nuxeo object type
-        if type == None:
+        if type in [None, '']:
             try:
                 type = self.metadata['type']
             except KeyError:
