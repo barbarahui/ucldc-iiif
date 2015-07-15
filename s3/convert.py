@@ -50,15 +50,15 @@ class Convert(object):
         # see if we recognize this mime type
         if mimetype in VALID_TYPES:
             passed = True
-            msg = "Object type '{}' was pre-checked and recognized as something we can try to convert.".format(mimetype)
+            msg = "Mime-type '{}' was pre-checked and recognized as something we can try to convert.".format(mimetype)
             self.logger.info(msg)
         elif mimetype in INVALID_TYPES:
             passed = False
-            msg = "Object type '{}' was pre-checked and recognized as something we don't want to convert.".format(mimetype)
+            msg = "Mime-type '{}' was pre-checked and recognized as something we don't want to convert.".format(mimetype)
             self.logger.info(msg)
         else:
             passed = False
-            msg = "Object type '{}' was unrecognized. We don't know how to deal with this".format(mimetype)
+            msg = "Mime-type '{}' was unrecognized. We don't know how to deal with this".format(mimetype)
             self.logger.warning(msg)
 
         return passed, msg
