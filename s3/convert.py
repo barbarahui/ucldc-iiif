@@ -43,7 +43,8 @@ class Convert(object):
         self.tiffcp_location = '/apps/nuxeo/pkg/bin/tiffcp'
         self.magick_convert_location = '/apps/nuxeo/pkg/bin/convert'
         self.kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress'
-
+        self.tiff2rgba_location = '/apps/nuxeo/pkg/bin/tiff2rgba'
+        self.tifficc_location = '/apps/nuxeo/pkg/bin/tifficc'
 
     def _pre_check(self, mimetype):
         ''' do a basic pre-check on the object to see if we think it's something know how to deal with '''
@@ -115,6 +116,7 @@ class Convert(object):
         try:
             subprocess.check_output([self.magick_convert_location,
                          "-compress", "None",
+                         "-quality", "100",
                          input_path,
                          output_path])
             preconverted = True
@@ -127,6 +129,46 @@ class Convert(object):
 
         return preconverted, msg 
         
+
+   
+    def _tiff_to_srgb_libtiff(self, input_path, output_path):
+        '''
+        convert color profile to sRGB using libtiff's `tiff2rgba` tool
+        '''
+        try:
+            subprocess.check_output([self.tiff2rgba_location,
+                                     "-c", "none",
+                                     input_path,
+                                     output_path])
+            to_srgb = True
+            msg = "Used tiff2rgba to convert {} to {}, with color profile sRGB (if not already sRGB)".format(input_path, output_path)
+            self.logger.info(msg)
+        except subprocess.CalledProcessError, e:
+            to_srgb = False
+            msg = 'libtiff `tiff2rgba` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
+            self.logger.error(msg)
+
+        return to_srgb, msg
+
+
+    def _tiff_to_srgb_little_cms(self, input_path, output_path):
+        '''
+        convert color profile to sRGB using Little CMS's `tifficc` ICC profile applier tool.
+        '''
+        try:
+            subprocess.check_output([self.tifficc_location,
+                     input_path,
+                     output_path])
+            to_srgb = True
+            msg = "Used tifficc to convert {} to {}, with color profile sRGB (if not already sRGB)".format(input_path, output_path) 
+            self.logger.info(msg)
+        except subprocess.CalledProcessError, e:
+            to_srgb = False
+            msg = 'Little CMS `tifficc` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
+            self.logger.error(msg)
+
+        return to_srgb, msg
+
 
 def main(argv=None):
     pass

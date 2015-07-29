@@ -38,6 +38,9 @@ class NuxeoStashRef(object):
         self.tmp_dir = tempfile.mkdtemp(dir='/apps/content/tmp') # FIXME put in conf
         self.source_filename = os.path.basename(self.path)
         self.source_filepath = os.path.join(self.tmp_dir, self.source_filename)
+        self.magick_tiff_filepath = os.path.join(self.tmp_dir, 'magicked.tif')
+        self.uncompressed_tiff_filepath = os.path.join(self.tmp_dir, 'uncompressed.tif')
+        self.srgb_tiff_filepath = os.path.join(self.tmp_dir, 'srgb.tiff')
         self.prepped_filepath = os.path.join(self.tmp_dir, 'prepped.tiff')
 
         name, ext = os.path.splitext(self.source_filename)
@@ -120,19 +123,30 @@ class NuxeoStashRef(object):
         '''
         report = {} 
 
-        # prep file for conversion to jp2 
+        # prep file for conversion to jp2
         if self.source_mimetype in PRECONVERT:
-            preconverted, preconvert_msg = self.convert._pre_convert(self.source_filepath, self.prepped_filepath)
+            preconverted, preconvert_msg = self.convert._pre_convert(self.source_filepath, self.magick_tiff_filepath)
             report['pre_convert'] = {'preconverted': preconverted, 'msg': preconvert_msg}
+
+            tiff_to_srgb, tiff_to_srgb_msg = self.convert._tiff_to_srgb_libtiff(self.magick_tiff_filepath, self.prepped_filepath)
+            report['tiff_to_srgb'] = {'tiff_to_srgb': tiff_to_srgb, 'msg': tiff_to_srgb_msg}
+
         elif self.source_mimetype == 'image/tiff':
-            uncompressed, uncompress_msg = self.convert._uncompress_tiff(self.source_filepath, self.prepped_filepath)
+            uncompressed, uncompress_msg = self.convert._uncompress_tiff(self.source_filepath, self.uncompressed_tiff_filepath)
             report['uncompress_tiff'] = {'uncompressed': uncompressed, 'msg': uncompress_msg}
+
+            tiff_to_srgb, tiff_to_srgb_msg = self.convert._tiff_to_srgb_libtiff(self.uncompressed_tiff_filepath, self.prepped_filepath)
+            report['tiff_to_srgb'] = {'tiff_to_srgb': tiff_to_srgb, 'msg': tiff_to_srgb_msg}
+
         else:
             msg = "Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype)
             self.logger.warning(msg)
             report['status'] = 'unknown mimetype'
             report['msg'] = "Did not know how to prep file with mimetype {} for conversion to jp2.".format(self.source_mimetype)
             return report
+
+        # convert to sRGB
+         
 
         # create jp2
         converted, jp2_msg = self.convert._tiff_to_jp2(self.prepped_filepath, self.jp2_filepath)
