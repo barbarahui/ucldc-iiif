@@ -12,6 +12,7 @@ import urlparse
 import logging
 from s3.convert import Convert
 import shutil
+import urllib
 
 S3_URL_FORMAT = "s3://{0}/{1}"
 PRECONVERT = ['image/jpeg', 'image/gif', 'image/png']
@@ -24,11 +25,11 @@ class NuxeoStashRef(object):
        
         self.logger = logging.getLogger(__name__)
         
-        self.path = path
+        self.path = urllib.quote(path)
         self.bucket = bucket
         self.pynuxrc = pynuxrc
         self.replace = replace
-        self.logger.info("initizialized NuxeoStashRef with path {}".format(self.path))
+        self.logger.info("initialized NuxeoStashRef with path {}".format(self.path))
 
         self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
         self.uid = self.nx.get_uid(self.path)
