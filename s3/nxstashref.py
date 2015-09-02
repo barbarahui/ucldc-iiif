@@ -37,7 +37,7 @@ class NuxeoStashRef(object):
         self.metadata = self.nx.get_metadata(path=self.path)
 
         self.tmp_dir = tempfile.mkdtemp(dir='/apps/content/tmp') # FIXME put in conf
-        self.source_filename = os.path.basename(self.path)
+        self.source_filename = "sourcefile"
         self.source_filepath = os.path.join(self.tmp_dir, self.source_filename)
         self.magick_tiff_filepath = os.path.join(self.tmp_dir, 'magicked.tif')
         self.uncompressed_tiff_filepath = os.path.join(self.tmp_dir, 'uncompressed.tif')
