@@ -76,6 +76,12 @@ class NuxeoStashRef(object):
             self._remove_tmp()
             return self.report
 
+        has_file, has_file_msg = self._has_file()
+        self._update_report('has_file', {'has_file': has_file, 'msg': has_file_msg})
+        if not has_file:
+            self._remove_tmp()
+            return self.report
+
         # grab the file to convert
         self._download_nuxeo_file()
 
@@ -94,6 +100,16 @@ class NuxeoStashRef(object):
  
         self._remove_tmp()
         return self.report 
+
+    def _has_file(self):
+        ''' do a check to see if this nuxeo doc has a content file '''
+        try:
+            filename = self.metadata['file']['filename']
+            msg = "File content found."
+            return True, msg
+        except KeyError:
+            msg = "Empty doc (no filename found)."
+            return False, msg
 
     def _is_image(self):
         ''' do a basic check to see if this is an image '''
