@@ -104,11 +104,14 @@ class NuxeoStashRef(object):
     def _has_file(self):
         ''' do a check to see if this nuxeo doc has a content file '''
         try:
-            filename = self.metadata['file']['filename']
+            filename = self.metadata['properties']['file:content']['name']
             msg = "File content found."
             return True, msg
         except KeyError:
-            msg = "Empty doc (no filename found)."
+            msg = "Empty doc (no content name found)."
+            return False, msg
+        except TypeError:
+            msg = "Empty doc (empty content name)."
             return False, msg
 
     def _is_image(self):
