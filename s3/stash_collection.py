@@ -51,6 +51,7 @@ def main(argv=None):
     unrecognized = len([key for key, value in report.iteritems() if not value['precheck']['pass']])
     print "not convertible:\t{}".format(unrecognized)
     converted = len([key for key, value in report.iteritems() if value['converted']])
+    already_stashed = len([key for key, value in report.iteritems() if 'already_s3_stashed' in value.keys() and value['already_s3_stashed']])
     print "converted:\t{}".format(converted)
     stashed = len([key for key, value in report.iteritems() if value['stashed']])
     print "stashed:\t{}".format(stashed)

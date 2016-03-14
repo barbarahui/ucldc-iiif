@@ -82,6 +82,11 @@ class NuxeoStashRef(object):
             self._remove_tmp()
             return self.report
 
+        self.s3_stashed = self._is_s3_stashed()
+        self._update_report('already_s3_stashed', self.s3_stashed)
+        if not self.replace and self.s3_stashed:
+            return self.report
+
         # grab the file to convert
         self._download_nuxeo_file()
 
@@ -129,6 +134,27 @@ class NuxeoStashRef(object):
         else:
             msg = "Nuxeo type is {}".format(type)
             return False, msg
+
+    def _is_s3_stashed(self):
+       """ Check for existence of key on S3.
+       """
+       key_exists = False
+
+       bucketpath = self.bucket.strip("/")
+       bucketbase = self.bucket.split("/")[0]
+       s3_url = S3_URL_FORMAT.format(bucketpath, self.uid)
+       parts = urlparse.urlsplit(s3_url)
+
+       conn = boto.connect_s3()
+
+       try:
+           bucket = conn.get_bucket(bucketbase)
+       except boto.exception.S3ResponseError:
+           self.logger.info("Bucket does not exist: {}".format(bucketbase))
+           return False 
+       
+       if bucket.get_key(parts.path):
+           return True 
 
     def _update_report(self, key, value):
         ''' add a key/value pair to report dict '''
