@@ -13,6 +13,7 @@ import logging
 from s3.convert import Convert
 import shutil
 import urllib
+from os.path import expanduser
 
 S3_URL_FORMAT = "s3://{0}/{1}"
 PRECONVERT = ['image/jpeg', 'image/gif', 'image/png']
@@ -31,7 +32,7 @@ class NuxeoStashRef(object):
         self.replace = replace
         self.logger.info("initialized NuxeoStashRef with path {}".format(self.path))
 
-        self.nx = utils.Nuxeo(rcfile=self.pynuxrc)
+        self.nx = utils.Nuxeo(rcfile=open(expanduser(self.pynuxrc), 'r'))
         self.uid = self.nx.get_uid(self.path)
         self.source_download_url = self._get_object_download_url()
         self.metadata = self.nx.get_metadata(path=self.path)
@@ -155,6 +156,8 @@ class NuxeoStashRef(object):
        
        if bucket.get_key(parts.path):
            return True 
+       else:
+           return False
 
     def _update_report(self, key, value):
         ''' add a key/value pair to report dict '''
