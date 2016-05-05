@@ -11,9 +11,10 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description='For Nuxeo collection, create jp2 versions of image files and stash in S3.')
     parser.add_argument('path', help="Nuxeo document path to collection")
-    parser.add_argument('bucket', help="S3 bucket name")
+    parser.add_argument('--bucket', default='ucldc-private-files/jp2000', help="S3 bucket name")
+    parser.add_argument('--region', default='us-west-2', help='AWS region')
     parser.add_argument('--replace', action="store_true", help="replace file on s3 if it already exists")
-    parser.add_argument('--pynuxrc', default='~/.pynuxrc-prod', help="rc file for use by pynux")
+    parser.add_argument('--pynuxrc', default='~/.pynuxrc', help="rc file for use by pynux")
     if argv is None:
         argv = parser.parse_args()
 
@@ -30,10 +31,10 @@ def main(argv=None):
     report = {}
     objects = dh.fetch_objects()
     for obj in objects:
-        nxstash = NuxeoStashRef(obj['path'], argv.bucket, argv.pynuxrc, argv.replace)
+        nxstash = NuxeoStashRef(obj['path'], argv.bucket, argv.region, argv.pynuxrc, argv.replace)
         report[nxstash.uid] = nxstash.nxstashref()
         for c in dh.fetch_components(obj):
-            nxstash = NuxeoStashRef(c['path'], argv.bucket, argv.pynuxrc) 
+            nxstash = NuxeoStashRef(c['path'], argv.bucket, argv.region, argv.pynuxrc) 
             report[nxstash.uid] = nxstash.nxstashref()
 
     # output report to json file

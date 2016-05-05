@@ -40,11 +40,12 @@ class Convert(object):
         
         self.logger = logging.getLogger(__name__)
 
-        self.tiffcp_location = '/apps/nuxeo/pkg/bin/tiffcp'
-        self.magick_convert_location = '/apps/nuxeo/pkg/bin/convert'
-        self.kdu_compress_location = '/apps/nuxeo/kakadu/kdu_compress'
-        self.tiff2rgba_location = '/apps/nuxeo/pkg/bin/tiff2rgba'
-        self.tifficc_location = '/apps/nuxeo/pkg/bin/tifficc'
+        # FIXME put all this in a conf file
+        self.tiffcp_location = '/usr/local/bin/tiffcp'
+        self.magick_convert_location = '/usr/local/bin/convert'
+        self.kdu_compress_location = '/usr/local/bin/kdu_compress'
+        self.tiff2rgba_location = '/usr/local/bin/tiff2rgba'
+        self.tifficc_location = '/usr/local/bin/tifficc'
 
     def _pre_check(self, mimetype):
         ''' do a basic pre-check on the object to see if we think it's something know how to deal with '''

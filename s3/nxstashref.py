@@ -7,6 +7,7 @@ import requests
 import subprocess
 import tempfile
 import boto
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 import magic
 import urlparse
 import logging
@@ -22,12 +23,13 @@ class NuxeoStashRef(object):
 
     ''' Base class for fetching a Nuxeo object, converting it to jp2 and stashing it in S3 '''
 
-    def __init__(self, path, bucket, pynuxrc, replace=False):
+    def __init__(self, path, bucket, region, pynuxrc, replace=False):
        
         self.logger = logging.getLogger(__name__)
         
         self.path = urllib.quote(path)
         self.bucket = bucket
+        self.region = region
         self.pynuxrc = pynuxrc
         self.replace = replace
         self.logger.info("initialized NuxeoStashRef with path {}".format(self.path))
@@ -37,7 +39,7 @@ class NuxeoStashRef(object):
         self.source_download_url = self._get_object_download_url()
         self.metadata = self.nx.get_metadata(path=self.path)
 
-        self.tmp_dir = tempfile.mkdtemp(dir='/apps/content/tmp') # FIXME put in conf
+        self.tmp_dir = tempfile.mkdtemp(dir='/tmp') # FIXME put in conf
         self.source_filename = "sourcefile"
         self.source_filepath = os.path.join(self.tmp_dir, self.source_filename)
         self.magick_tiff_filepath = os.path.join(self.tmp_dir, 'magicked.tif')
@@ -146,7 +148,10 @@ class NuxeoStashRef(object):
        s3_url = S3_URL_FORMAT.format(bucketpath, self.uid)
        parts = urlparse.urlsplit(s3_url)
 
-       conn = boto.connect_s3()
+       if self.region == 'us-east-1':
+           conn = boto.connect_s3(calling_format = OrdinaryCallingFormat())
+       else:
+           conn = boto.connect_s3(self.region)
 
        try:
            bucket = conn.get_bucket(bucketbase)
@@ -244,7 +249,10 @@ class NuxeoStashRef(object):
        parts = urlparse.urlsplit(s3_url)
        mimetype = magic.from_file(self.jp2_filepath, mime=True)
        
-       conn = boto.connect_s3() 
+       if self.region == 'us-east-1':
+           conn = boto.connect_s3(calling_format = OrdinaryCallingFormat()) 
+       else:
+           conn = boto.s3.connect_to_region(self.region)
 
        try:
            bucket = conn.get_bucket(bucketbase)
