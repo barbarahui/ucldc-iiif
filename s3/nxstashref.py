@@ -151,7 +151,7 @@ class NuxeoStashRef(object):
        if self.region == 'us-east-1':
            conn = boto.connect_s3(calling_format = OrdinaryCallingFormat())
        else:
-           conn = boto.connect_s3(self.region)
+           conn = boto.s3.connect_to_region(self.region) 
 
        try:
            bucket = conn.get_bucket(bucketbase)
