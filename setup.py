@@ -24,6 +24,6 @@ setup(
         'python-magic',
         'UCLDC-Deep-Harvester'
     ],
-    packages=['s3'],
+    packages=['ucldc_iiif'],
     test_suite='tests'
 )
