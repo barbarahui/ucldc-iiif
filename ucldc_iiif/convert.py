@@ -32,20 +32,29 @@ KDU_COMPRESS_DEFAULT_OPTS.extend(["-jp2_space", "sRGB"])
 
 class Convert(object):
 
-    ''' 
+    '''
         utilities for use in converting an image file to jp2 format
     '''
 
     def __init__(self):
-        
+
         self.logger = logging.getLogger(__name__)
 
-        # FIXME put all this in a conf file
-        self.tiffcp_location = '/usr/local/bin/tiffcp'
-        self.magick_convert_location = '/usr/local/bin/convert'
-        self.kdu_compress_location = '/usr/local/bin/kdu_compress'
-        self.tiff2rgba_location = '/usr/local/bin/tiff2rgba'
-        self.tifficc_location = '/usr/local/bin/tifficc'
+        self.tiffcp_location = os.environ.get(
+                'PATH_TIFFCP',
+                '/usr/local/bin/tiffcp')
+        self.magick_convert_location = os.environ.get(
+                'PATH_MAGICK_CONVERT',
+                '/usr/local/bin/convert')
+        self.kdu_compress_location = os.environ.get(
+                'PATH_KDU_COMPRESS',
+                '/usr/local/bin/kdu_compress')
+        self.tiff2rgba_location = os.environ.get(
+                'PATH_TIFF2RGBA',
+                '/usr/local/bin/tiff2rgba')
+        self.tifficc_location = os.environ.get(
+                'PATH_TIFFICC',
+                '/usr/local/bin/tifficc')
 
     def _pre_check(self, mimetype):
         ''' do a basic pre-check on the object to see if we think it's something know how to deal with '''
@@ -80,7 +89,7 @@ class Convert(object):
             msg = '`tiffcp` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
             self.logger.error(msg)
 
-        return uncompressed, msg             
+        return uncompressed, msg
 
 
     def _tiff_to_jp2(self, tiff_path, jp2_path):
@@ -90,7 +99,7 @@ class Convert(object):
         default_args.extend(KDU_COMPRESS_DEFAULT_OPTS)
         alt_args = basic_args[:]
         alt_args.extend(KDU_COMPRESS_BASE_OPTS)
-       
+
         try:
             subprocess.check_output(default_args)
             converted = True
@@ -99,7 +108,7 @@ class Convert(object):
         except subprocess.CalledProcessError, e:
             self.logger.info('A kdu_compress command failed. Trying alternate.')
             try:
-                subprocess.check_output(alt_args) 
+                subprocess.check_output(alt_args)
                 converted = True
                 msg = '{} converted to {}'.format(tiff_path, jp2_path)
                 self.logger.info(msg)
@@ -111,8 +120,8 @@ class Convert(object):
         return converted, msg
 
     def _pre_convert(self, input_path, output_path):
-        ''' 
-         convert file using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php 
+        '''
+         convert file using ImageMagick `convert`: http://www.imagemagick.org/script/convert.php
         '''
         try:
             subprocess.check_output([self.magick_convert_location,
@@ -128,10 +137,10 @@ class Convert(object):
             msg = 'ImageMagic `convert` command failed: {}\nreturncode was: {}\noutput was: {}'.format(e.cmd, e.returncode, e.output)
             self.logger.error(msg)
 
-        return preconverted, msg 
-        
+        return preconverted, msg
 
-   
+
+
     def _tiff_to_srgb_libtiff(self, input_path, output_path):
         '''
         convert color profile to sRGB using libtiff's `tiff2rgba` tool
@@ -161,7 +170,7 @@ class Convert(object):
                      input_path,
                      output_path])
             to_srgb = True
-            msg = "Used tifficc to convert {} to {}, with color profile sRGB (if not already sRGB)".format(input_path, output_path) 
+            msg = "Used tifficc to convert {} to {}, with color profile sRGB (if not already sRGB)".format(input_path, output_path)
             self.logger.info(msg)
         except subprocess.CalledProcessError, e:
             to_srgb = False
@@ -173,6 +182,6 @@ class Convert(object):
 
 def main(argv=None):
     pass
- 
+
 if __name__ == "__main__":
     sys.exit(main())
