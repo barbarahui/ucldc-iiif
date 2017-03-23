@@ -153,7 +153,8 @@ class Convert(object):
         try:
             subprocess.check_output([
                 self.tiff2rgba_location, "-c", "none", input_path, output_path
-            ])
+            ],
+                stderr=subprocess.STDOUT)
             to_srgb = True
             msg = "Used tiff2rgba to convert {} to {}, with color profile" \
                   "sRGB (if not already sRGB)".format(input_path, output_path)
@@ -173,7 +174,8 @@ class Convert(object):
         '''
         try:
             subprocess.check_output(
-                [self.tifficc_location, input_path, output_path])
+                [self.tifficc_location, input_path, output_path],
+                stderr=subprocess.STDOUT)
             to_srgb = True
             msg = "Used tifficc to convert {} to {}, with color profile " \
                   "sRGB (if not already sRGB)".format(input_path, output_path)
