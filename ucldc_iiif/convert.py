@@ -5,7 +5,7 @@ import os
 import subprocess
 import logging
 
-VALID_TYPES = ['image/jpeg', 'image/gif', 'image/tiff', 'image/png']
+VALID_TYPES = ['image/jpeg', 'image/gif', 'image/tiff', 'image/png', 'image/jp2', 'image/jpx', 'image/jpm']
 INVALID_TYPES = ['application/pdf']
 
 # Settings recommended as a starting point by Jon Stroop.
@@ -43,6 +43,8 @@ class Convert(object):
                                                  '/usr/local/bin/tiff2rgba')
         self.tifficc_location = os.environ.get('PATH_TIFFICC',
                                                '/usr/local/bin/tifficc')
+        self.kdu_expand_location = os.environ.get('PATH_KDU_EXPAND',
+                                               '/usr/local/bin/kdu_expand')
 
     def _pre_check(self, mimetype):
         ''' do a basic pre-check on the object to see if we think it's
@@ -83,6 +85,26 @@ class Convert(object):
         except subprocess.CalledProcessError, e:
             uncompressed = False
             msg = '`tiffcp` command failed: {}\nreturncode was: {}\n' \
+                  'output was: {}'.format(e.cmd, e.returncode, e.output)
+            self.logger.error(msg)
+
+        return uncompressed, msg
+
+    def _uncompress_jp2000(self, compressed_path, uncompressed_path):
+        ''' uncompress a jp2000 file using kdu_expand '''
+        try:
+            subprocess.check_output(
+                [
+                    self.kdu_expand_location, "-i", compressed_path, "-o", uncompressed_path
+                ],
+                stderr=subprocess.STDOUT)
+            uncompressed = True
+            msg = 'File uncompressed using kdu_expand. Input: {}, output: {}'.format(
+                compressed_path, uncompressed_path)
+            self.logger.info(msg)
+        except subprocess.CalledProcessError, e:
+            uncompressed = False
+            msg = '`kdu_expand` command failed: {}\nreturncode was: {}\n' \
                   'output was: {}'.format(e.cmd, e.returncode, e.output)
             self.logger.error(msg)
 
