@@ -58,6 +58,14 @@ class FixLegacyJp2(object):
 
         # upload file
 
+    def convert_to_tiff(self, input_path, output_path):
+        ''' uncompress jp2 using kdu_expand '''
+        pass
+
+    def tiff_to_jp2(self, input_path, output_path):
+        ''' convert tiff to jp2 using kdu_compress '''
+        pass
+
     def remove_tmp(self):
         ''' clean up after ourselves '''
         shutil.rmtree(self.tmp_dir)
