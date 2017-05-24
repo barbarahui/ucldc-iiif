@@ -153,7 +153,7 @@ class Convert(object):
             subprocess.check_output(
                 [
                     self.magick_convert_location, "-compress", "None",
-                    "-quality", "100", input_path, output_path
+                    "-quality", "100", "-auto-orient", input_path, output_path
                 ],
                 stderr=subprocess.STDOUT)
             preconverted = True
