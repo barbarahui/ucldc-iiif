@@ -19,9 +19,9 @@ setup(
         'https://github.com/barbarahui/nuxeo-calisphere/archive/master.zip#egg=UCLDC-Deep-Harvester'
     ],
     install_requires=[
-        'boto',
+        'boto==2.49.0',
         'pynux',
-        'python-magic',
+	'python-magic==0.4.15',
         'UCLDC-Deep-Harvester'
     ],
     packages=['ucldc_iiif'],
